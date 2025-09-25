@@ -33,6 +33,7 @@ url = f"https://quote.alltick.io/quote-stock-b-api/trade-tick?token={token}&quer
 
 # 4. 全局变量
 base_prices = {}  # 存储基准价格
+previous_prices = {}  # 存储上一次的价格
 log_file = "./stock_monitor.log"  # 日志文件名
 alert_threshold = 1.5  # 预警阈值 1.5%
 
@@ -45,7 +46,26 @@ def write_log(message):
     with open(log_file, "a", encoding="utf-8") as f:
         f.write(log_message)
 
-# 6. 检查价格变化的函数
+# 6. 获取价格变化指示器的函数
+def get_price_change_indicator(code, current_price):
+    """获取与上一次价格比较的变化指示器"""
+    if code not in previous_prices:
+        # 第一次获取价格，设置为上一次价格
+        previous_prices[code] = current_price
+        return "(平)"  # 第一次显示为平
+    
+    prev_price = previous_prices[code]
+    
+    if current_price > prev_price:
+        previous_prices[code] = current_price  # 更新上一次价格
+        return "(涨)"
+    elif current_price < prev_price:
+        previous_prices[code] = current_price  # 更新上一次价格
+        return "(跌)"
+    else:
+        return "(平)"
+
+# 7. 检查价格变化的函数
 def check_price_changes(stock_data):
     """检查价格变化并发出预警"""
     alerts = []
@@ -73,7 +93,7 @@ def check_price_changes(stock_data):
     
     return alerts
 
-# 7. 发送 GET 请求的函数
+# 8. 发送 GET 请求的函数
 def fetch_stock_data():
     headers = {
         'Accept': 'application/json'
@@ -94,7 +114,13 @@ def fetch_stock_data():
         # 打印结果，每个股票信息换行显示
         print("股票数据:")
         for stock in result:
-            print(f"代码: {stock['code']}, 价格: {stock['price']}")
+            code = stock['code']
+            current_price = float(stock['price'])
+            
+            # 获取价格变化指示器
+            change_indicator = get_price_change_indicator(code, current_price)
+            
+            print(f"代码: {code}, 价格: {stock['price']} {change_indicator}")
         print("-" * 40)  # 分隔线
         
         # 写入日志
@@ -119,9 +145,9 @@ def fetch_stock_data():
         write_log(error_msg)
         return None
 
-# 8. 主循环，每隔10秒调用一次
+# 9. 主循环，每隔20秒调用一次
 if __name__ == "__main__":
-    print("开始监控股票数据，每隔10秒更新一次...")
+    print("开始监控股票数据，每隔20秒更新一次...")
     print(f"日志文件: {log_file}")
     print(f"预警阈值: {alert_threshold}%")
     print("按 Ctrl+C 停止程序")
@@ -136,7 +162,7 @@ if __name__ == "__main__":
     try:
         while True:
             fetch_stock_data()
-            time.sleep(10)  # 等待10秒
+            time.sleep(20)  # 等待20秒
     except KeyboardInterrupt:
         print("\n程序已停止")
         write_log("程序正常停止")
